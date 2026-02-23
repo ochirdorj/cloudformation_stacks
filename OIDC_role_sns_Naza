@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM Role for GitHub Actions (OIDC) in Shared services Account for Sns topic for Naza
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub organization name
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+  OIDCProviderArn:
+    Type: String
+    Description: ARN of GitHub OIDC provider (arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com)
+  S3BucketName:
+    Type: String
+    Description: Name of S3 bucket for Terraform backend
+
+Resources:
+  GitHubActionsOIDCRoleforNazaSns:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GitHubActionsOIDCRoleforNazaSns
+      Description: >
+        Role for GitHub Actions to manage Sns topic in Shared services account for Naza.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref OIDCProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOrg}/${GitHubRepo}:*"
+
+      Policies:
+        - PolicyName: ManageSNSTopicNaza
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+    
+              - Sid: SNSTopicAccess
+                Effect: Allow
+                Action:
+                  - sns:ListTopics
+                  - sns:CreateTopic
+                  - sns:DeleteTopic
+                  - sns:GetTopicAttributes
+                  - sns:SetTopicAttributes
+                  - sns:Subscribe
+                  - sns:Unsubscribe
+                  - sns:Publish
+                  - sns:TagResource
+                  - sns:UntagResource
+                  - sns:ListTagsForResource
+                Resource: "*"
+                
+              - Sid: ManageS3
+                Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                  - s3:GetBucketVersioning
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:PutBucketTagging
+                  - s3:GetEncryptionConfiguration
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3BucketName}"
+                  - !Sub "arn:aws:s3:::${S3BucketName}/*"
+
+Outputs:
+  GitHubActionsOIDCRoleforNazaSnsArn:
+    Description: ARN of GitHubActionsOIDCRoleforNazaSns
+    Value: !GetAtt GitHubActionsOIDCRoleforNazaSns.Arn

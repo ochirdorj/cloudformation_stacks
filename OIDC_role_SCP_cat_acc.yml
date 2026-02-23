@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM Role for GitHub Actions (OIDC) in Management Account for SCP and S3 backend
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub organization name
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+  OIDCProviderArn:
+    Type: String
+    Description: ARN of GitHub OIDC provider (arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com)
+  S3BucketName:
+    Type: String
+    Description: Name of S3 bucket for Terraform backend
+
+Resources:
+  GitHubActionsOIDCRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GitHubActionsOIDCRole
+      Description: >
+        Role for GitHub Actions to manage SCPs and access S3 backend in Management account.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref OIDCProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOrg}/${GitHubRepo}:*"
+
+      Policies:
+        - PolicyName: ManageSCPandS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+    
+              - Sid: ManageSCPs
+                Effect: Allow
+                Action: "organizations:*"
+                Resource: "*"
+
+
+              - Sid: S3BackendAccess
+                Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                  - s3:GetBucketVersioning
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:PutBucketTagging
+                  - s3:GetEncryptionConfiguration
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3BucketName}"
+                  - !Sub "arn:aws:s3:::${S3BucketName}/*"
+
+Outputs:
+  GitHubActionsOIDCRoleArn:
+    Description: ARN of GitHubActionsOIDCRole
+    Value: !GetAtt GitHubActionsOIDCRole.Arn

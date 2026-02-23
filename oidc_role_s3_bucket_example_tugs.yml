@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM Role for GitHub Actions (OIDC) in Shared services Account for s3 bucket for tugsuu
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub organization name
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+  OIDCProviderArn:
+    Type: String
+    Description: ARN of GitHub OIDC provider (arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com)
+  S3BucketName:
+    Type: String
+    Description: Name of S3 bucket for Terraform backend
+
+Resources:
+  GitHubActionsOIDCRoleforTugsuuS3:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GitHubActionsOIDCRoleforTugsuuS3
+      Description: >
+        Role for GitHub Actions to manage s3 bucket in Shared services account for s3 Tugsuu.
+      MaxSessionDuration: 7200
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref OIDCProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOrg}/${GitHubRepo}:*"
+
+      Policies:
+        - PolicyName: ManageS3BucketTugsuu
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+               
+              - Sid: ManageS3
+                Effect: Allow
+                Action: "s3:*"
+                Resource: "*"
+
+Outputs:
+  GitHubActionsOIDCRoleforTugsuuS3Arn:
+    Description: ARN of GitHubActionsOIDCRoleforTugsuuS3
+    Value: !GetAtt GitHubActionsOIDCRoleforTugsuuS3.Arn

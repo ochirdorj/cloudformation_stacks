@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM Role for GitHub Actions (OIDC) in DNS Account for EC2 instance
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub organization name
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+  OIDCProviderArn:
+    Type: String
+    Description: ARN of GitHub OIDC provider (arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com)
+  S3BucketName:
+    Type: String
+    Description: Name of S3 bucket for Terraform backend
+
+Resources:
+  GitHubActionsOIDCRoleforDNSEC2
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GitHubActionsOIDCRoleforDNSEC2
+      Description: >
+        Role for GitHub Actions to manage Ec2 instance in DNS account for Tugsuu.
+      MaxSessionDuration: 7200
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref OIDCProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOrg}/${GitHubRepo}:*"
+
+      Policies:
+        - PolicyName: ManageEC2InstanceDNSTugsuu
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+               
+              - Sid: ManageS3
+                Effect: Allow
+                Action: "s3:*"
+                Resource: "*"
+
+Outputs:
+  GitHubActionsOIDCRoleforTugsuuS3Arn:
+    Description: ARN of GitHubActionsOIDCRoleforDNSEC2
+    Value: !GetAtt GitHubActionsOIDCRoleforDNSEC2.Arn

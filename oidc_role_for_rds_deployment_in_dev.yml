@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM Role for Self hosted runner (OIDC) in Shared Services Account for Admin access
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub organization name
+
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+
+  OIDCProviderArn:
+    Type: String
+    Description: ARN of GitHub OIDC provider (arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com)
+
+  S3BucketName:
+    Type: String
+    Description: Name of S3 bucket for Terraform backend
+
+Resources:
+  GitHubActionsOIDCRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GitHubActionsOIDCRole-Admin-Access-Dev
+      Description: Role for GitHub Actions to manage Admin access in Dev account
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref OIDCProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOrg}/${GitHubRepo}:*"
+
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+Outputs:
+  GitHubActionsOIDCRoleArn:
+    Description: ARN of the created GitHubActionsOIDCRole
+    Value: !GetAtt GitHubActionsOIDCRole.Arn

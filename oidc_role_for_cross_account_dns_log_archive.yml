@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates the Route 53 delegation role for cross-account management DNS and Log Archive.
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub organization name
+
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+
+  OIDCProviderArn:
+    Type: String
+    Description: ARN of GitHub OIDC provider (arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com)
+
+  S3BucketName:
+    Type: String
+    Description: Name of S3 bucket for Terraform backend
+
+Resources:
+  Route53DelegationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: dns-ap13-role-hosted-zone-delegation-log-archive-account
+      Description: Cross-account role to allow Log Archive Account to manage Route 53 records.
+
+      # 1. THE TRUST POLICY
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: "arn:aws:iam::417022149422:root"
+            Action: "sts:AssumeRole"
+            Condition: {}
+
+      # 2. THE PERMISSION POLICY
+      Policies:
+        - PolicyName: Route53HostedZoneAccessLogArchive
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: AllowUpdateParentZone
+                Effect: Allow
+                Action:
+                  - "route53:ChangeResourceRecordSets"
+                  - "route53:ListResourceRecordSets"
+                Resource: "arn:aws:route53:::hostedzone/Z04640131EWH4G2V6ZZRY"
+              - Sid: AllowListZones
+                Effect: Allow
+                Action:
+                  - "route53:ListHostedZones"
+                  - "route53:GetHostedZone"
+                  - "route53:GetChange"
+                Resource: "*"
+
+Outputs:
+  RoleArn:
+    Description: ARN of the created Role
+    Value: !GetAtt Route53DelegationRole.Arn
+
+

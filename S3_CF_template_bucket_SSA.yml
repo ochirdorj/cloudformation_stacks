@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "S3 bucket for Cloud formation template SSA"
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: "Name of the S3 bucket for SSA cloud formation template"
+    AllowedPattern: "^[a-z0-9.-]+$"
+    ConstraintDescription: "Bucket name must be lowercase, numbers, dots, or hyphens"
+
+  EnableObjectLock:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: "Enable S3 Object Lock for the bucket"
+
+Resources:
+  CloudformationTemplateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      ObjectLockEnabled: !If
+        - ObjectLockCondition
+        - true
+        - !Ref "AWS::NoValue"
+
+Conditions:
+  ObjectLockCondition: !Equals [!Ref EnableObjectLock, "true"]
+
+Outputs:
+  CloudformationTemplateBucketName:
+    Description: "Name of the S3 bucket for SSA Cloudformation template"
+    Value: !Ref CloudformationTemplateBucket
+
+  CloudformationTemplateBucketArn:
+    Description: "ARN of the S3 bucket for SSA Cloudformation template"
+    Value: !GetAtt CloudformationTemplateBucket.Arn
